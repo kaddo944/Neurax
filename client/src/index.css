@@ -114,10 +114,21 @@
   background: linear-gradient(45deg, transparent 30%, rgba(0, 255, 0, 0.1) 50%, transparent 70%);
   opacity: 0;
   transition: opacity 0.3s;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .cyber-card:hover::before {
   opacity: 1;
+}
+
+/* Ensure form elements are above the overlay */
+.cyber-card input,
+.cyber-card textarea,
+.cyber-card select,
+.cyber-card button {
+  position: relative;
+  z-index: 2;
 }
 
 /* Glow effects */
@@ -249,4 +260,30 @@
   .cyber-button::before {
     transition: none;
   }
+}
+
+/* Fix input interactivity issues */
+input, textarea, button, select {
+  pointer-events: auto !important;
+  user-select: text !important;
+}
+
+/* Ensure form elements are clickable */
+form input,
+form textarea,
+form button,
+form select {
+  pointer-events: auto !important;
+  user-select: text !important;
+  z-index: 10;
+}
+
+/* Fix any overlay issues */
+.matrix-bg::before {
+  pointer-events: none !important;
+}
+
+/* Ensure scanning effect doesn't block interaction */
+.scanning-effect {
+  pointer-events: none !important;
 }

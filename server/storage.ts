@@ -352,9 +352,20 @@ export class MemStorage implements IStorage {
     return idea;
   }
   
-  async getUnusedContentIdeas(userId: number): Promise<ContentIdea[]> {
-    return Array.from(this.contentIdeasData.values())
-      .filter(idea => idea.userId === userId && !idea.used);
+  async getUnusedContentIdeas(userId: number, limit?: number): Promise<ContentIdea[]> {
+    const ideas = Array.from(this.contentIdeasData.values())
+      .filter(idea => idea.userId === userId && !idea.used)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    
+    return limit ? ideas.slice(0, limit) : ideas;
+  }
+  
+  async getAllContentIdeas(userId: number, limit?: number): Promise<ContentIdea[]> {
+    const ideas = Array.from(this.contentIdeasData.values())
+      .filter(idea => idea.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    
+    return limit ? ideas.slice(0, limit) : ideas;
   }
   
   async markContentIdeaAsUsed(id: number): Promise<boolean> {
@@ -363,6 +374,10 @@ export class MemStorage implements IStorage {
     
     this.contentIdeasData.set(id, { ...idea, used: true });
     return true;
+  }
+  
+  async deleteContentIdea(id: number): Promise<boolean> {
+    return this.contentIdeasData.delete(id);
   }
 }
 

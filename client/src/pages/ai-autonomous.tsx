@@ -130,7 +130,7 @@ const AIAutonomous = () => {
   const systemResources = 87;
   const apiCredits = 62;
   const learningProgress = 94;
-  const latestLog = autonomousStatus?.recentActivities?.[0]?.content || "Successfully analyzed 230 trending posts. Generated 14 content ideas. Scheduled 3 posts for optimal engagement.";
+  const latestLog = autonomousStatus?.recentActivities?.[0]?.content || "Autonomous system ready. Waiting for next analysis cycle.";
 
   // Handle autonomous mode toggle
   const handleAutonomousToggle = () => {

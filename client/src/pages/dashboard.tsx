@@ -12,6 +12,7 @@ import { LoadingBar } from "@/components/ui/loading-bar";
 import { Link } from "wouter";
 import { TimelineItem } from "@/components/dashboard/Timeline";
 import { formatDate, timeAgo, getAssetIcon } from "@/lib/utils";
+import TrendingAnalysis from "@/components/trending-analysis";
 
 type MetricsData = {
   id: number;
@@ -497,6 +498,11 @@ const Dashboard = () => {
       {/* Twitter Feed Section */}
       <div className="mb-8">
         <TwitterFeed maxPosts={8} className="" />
+      </div>
+
+      {/* Trending Analysis Section */}
+      <div className="mb-8">
+        <TrendingAnalysis />
       </div>
 
       {/* Quick Actions Panel 2025 */}

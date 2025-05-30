@@ -15,6 +15,7 @@ import { websocketService } from "./services/websocket";
 import { autonomousService, AutonomousConfig } from "./services/autonomous";
 import { WebSocketServer, WebSocket } from 'ws';
 import memorystore from 'memorystore';
+import trendingRoutes from './routes/trending';
 import { 
   helmetConfig, 
   generalLimiter, 
@@ -710,6 +711,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error fetching content ideas" });
     }
   });
+
+  // TRENDING ANALYSIS ROUTES
+  app.use('/api/trending', trendingRoutes);
 
   // CRYPTO TRADING ROUTES
 

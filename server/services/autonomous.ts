@@ -2,6 +2,7 @@ import { twitterService } from './twitter';
 import { aiService } from './ai';
 import { storage } from '../storage';
 import { createLogger } from '../utils/logger';
+import { trendingAnalysisService } from './trending';
 
 const logger = createLogger('Autonomous');
 
@@ -100,6 +101,11 @@ class AutonomousService {
       if (!user || !user.twitterAccessToken || !user.twitterAccessTokenSecret) {
         logger.warn('User Twitter credentials not found', { userId });
         return;
+      }
+
+      // Run trending analysis (20% chance for full analysis)
+      if (Math.random() < 0.2) {
+        await this.runTrendingAnalysis(user.twitterAccessToken, user.twitterAccessTokenSecret, userId);
       }
 
       // Check mentions and reply if enabled
@@ -261,6 +267,48 @@ class AutonomousService {
 
     } catch (error) {
       logger.error('Error handling timeline engagement:', error);
+    }
+  }
+
+  // Run trending analysis and generate content ideas
+  private async runTrendingAnalysis(
+    accessToken: string,
+    accessTokenSecret: string,
+    userId: number
+  ): Promise<void> {
+    try {
+      logger.info('Starting trending analysis', { userId });
+      
+      const analysisResult = await trendingAnalysisService.analyzeTrendingPosts(
+        accessToken,
+        accessTokenSecret,
+        userId
+      );
+
+      this.addActivity({
+        id: this.generateId(),
+        type: 'auto_post',
+        timestamp: new Date(),
+        content: `Trending analysis: ${analysisResult.trendingTopics.length} topics, ${analysisResult.contentIdeas.length} ideas generated`,
+        success: true
+      });
+
+      logger.info('Trending analysis completed', {
+        userId,
+        topicsFound: analysisResult.trendingTopics.length,
+        ideasGenerated: analysisResult.contentIdeas.length
+      });
+    } catch (error) {
+      logger.error('Error in trending analysis:', error);
+      
+      this.addActivity({
+        id: this.generateId(),
+        type: 'auto_post',
+        timestamp: new Date(),
+        content: 'Trending analysis failed',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 

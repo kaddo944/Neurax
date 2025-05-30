@@ -207,22 +207,22 @@ const TwitterConnection: React.FC<TwitterConnectionProps> = ({
       <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <AlertDialogContent className="bg-spaceBlack border border-red-500/30">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-400">Conferma eliminazione</AlertDialogTitle>
+            <AlertDialogTitle className="text-red-400">Confirm deletion</AlertDialogTitle>
             <AlertDialogDescription className="text-matrixGreen/70">
-              Sei sicuro di voler rimuovere l'account Twitter @{accountToDelete?.twitterUsername}?
+              Are you sure you want to remove the Twitter account @{accountToDelete?.twitterUsername}?
               <p className="mt-2 text-red-400/80">
                 <i className="fas fa-exclamation-triangle mr-1"></i>
-                Questa azione non può essere annullata.
+                This action cannot be undone.
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-transparent border border-matrixGreen/30 text-matrixGreen">Annulla</AlertDialogCancel>
+            <AlertDialogCancel className="bg-transparent border border-matrixGreen/30 text-matrixGreen">Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmDeleteAccount} 
               className="bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30"
             >
-              Elimina
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

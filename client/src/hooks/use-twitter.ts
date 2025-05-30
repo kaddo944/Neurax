@@ -163,14 +163,14 @@ export function useTwitter() {
       queryClient.invalidateQueries({ queryKey: ["/api/twitter/accounts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
-        title: "Account impostato come default",
-        description: "L'account Twitter selezionato è ora il tuo account predefinito"
+        title: "Account set as default",
+        description: "The selected Twitter account is now your default account"
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Errore",
-        description: `Impossibile impostare l'account come default: ${error.message}`,
+        title: "Error",
+        description: `Unable to set account as default: ${error.message}`,
         variant: "destructive"
       });
     }
@@ -186,14 +186,14 @@ export function useTwitter() {
       queryClient.invalidateQueries({ queryKey: ["/api/twitter/accounts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
-        title: "Account eliminato",
-        description: "L'account Twitter è stato rimosso correttamente"
+        title: "Account deleted",
+        description: "The Twitter account has been removed successfully"
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Errore",
-        description: `Impossibile eliminare l'account: ${error.message}`,
+        title: "Error",
+        description: `Unable to delete account: ${error.message}`,
         variant: "destructive"
       });
     }

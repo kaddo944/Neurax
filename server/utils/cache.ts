@@ -53,11 +53,11 @@ class MemoryCache {
 
   private cleanup(): void {
     const now = Date.now();
-    this.cache.forEach((item, key) => {
+    for (const [key, item] of this.cache.entries()) {
       if (now > item.expiry) {
         this.cache.delete(key);
       }
-    });
+    }
   }
 
   destroy(): void {

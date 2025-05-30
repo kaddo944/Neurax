@@ -29,9 +29,13 @@ const postSchema = z.object({
 });
 
 const ManualPost = () => {
+  console.log('ManualPost component rendering...');
+  
   const { isTwitterConnected, createPost, twitterAccounts, isCreatingPost } = useTwitter();
   const { generateText, isGeneratingText, generatedText, generateImage, isGeneratingImage, generatedImage } = useAI();
   const { toast } = useToast();
+  
+  console.log('Hooks loaded:', { isTwitterConnected, twitterAccounts, isCreatingPost });
   
   const [selectedTab, setSelectedTab] = useState<string>("compose");
   const [aiProgress, setAiProgress] = useState<number>(0);
@@ -47,7 +51,23 @@ const ManualPost = () => {
       imagePrompt: "",
       scheduledFor: "",
     },
+    mode: "onChange",
   });
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('ManualPost component mounted');
+    console.log('Form state:', form.formState);
+    console.log('Twitter connected:', isTwitterConnected);
+    console.log('Twitter accounts:', twitterAccounts);
+  }, [form.formState, isTwitterConnected, twitterAccounts]);
+
+  // Debug: log form state
+  React.useEffect(() => {
+    console.log("Form values:", form.getValues());
+    console.log("Form errors:", form.formState.errors);
+  }, [form.watch()]);
+
 
   // AI content generation
   const handleAiGenerate = () => {
@@ -165,12 +185,14 @@ const ManualPost = () => {
     }
   }, [isCreatingPost, wasCreating, form]);
 
-  return (
-    <div className="p-4 md:p-6 lg:p-8">
-      <div className="mb-6">
-        <h2 className="text-2xl md:text-3xl font-future font-bold text-neonGreen mb-2">Manual Post</h2>
-        <p className="text-matrixGreen/70">Create and schedule posts with AI assistance</p>
-      </div>
+  try {
+    console.log('About to render ManualPost JSX...');
+    return (
+      <div className="p-4 md:p-6 lg:p-8">
+        <div className="mb-6">
+          <h2 className="text-2xl md:text-3xl font-future font-bold text-neonGreen mb-2">Manual Post</h2>
+          <p className="text-matrixGreen/70">Create and schedule posts with AI assistance</p>
+        </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3">
@@ -189,6 +211,7 @@ const ManualPost = () => {
                 <form onSubmit={form.handleSubmit(onSubmit)}>
                   <TabsContent value="compose">
                     <div className="space-y-4">
+
                       <FormField
                         control={form.control}
                         name="content"
@@ -200,6 +223,12 @@ const ManualPost = () => {
                                 {...field}
                                 placeholder="What's happening in the crypto world?"
                                 className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen text-matrixGreen resize-none h-32"
+                                onFocus={() => console.log('Textarea focused')}
+                                onClick={() => console.log('Textarea clicked')}
+                                onChange={(e) => {
+                                  console.log('Textarea changed:', e.target.value);
+                                  field.onChange(e);
+                                }}
                               />
                             </FormControl>
                             <div className="flex justify-between text-xs">
@@ -224,6 +253,12 @@ const ManualPost = () => {
                                   {...field}
                                   placeholder="Describe the image you want to generate"
                                   className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen text-matrixGreen"
+                                  onFocus={() => console.log('Image prompt input focused')}
+                                  onClick={() => console.log('Image prompt input clicked')}
+                                  onChange={(e) => {
+                                    console.log('Image prompt changed:', e.target.value);
+                                    field.onChange(e);
+                                  }}
                                 />
                               </FormControl>
                               <CyberButton
@@ -456,6 +491,20 @@ const ManualPost = () => {
       <Footer />
     </div>
   );
+  } catch (error) {
+    console.error('Error rendering ManualPost:', error);
+    return (
+      <div className="p-4 md:p-6 lg:p-8">
+        <div className="mb-6">
+          <h2 className="text-2xl md:text-3xl font-future font-bold text-red-500 mb-2">Error</h2>
+          <p className="text-red-400">There was an error rendering this page. Check the console for details.</p>
+          <pre className="text-xs text-red-300 mt-4 bg-red-900/20 p-4 rounded">
+            {error instanceof Error ? error.message : String(error)}
+          </pre>
+        </div>
+      </div>
+    );
+  }
 };
 
 export default ManualPost;

@@ -43,8 +43,8 @@ export default function Login() {
         });
 
         toast({
-          title: 'Registrazione completata',
-          description: 'Account creato con successo!',
+          title: 'Registration completed',
+          description: 'Account created successfully!',
         });
         
         // Redirect to dashboard after successful registration
@@ -98,7 +98,7 @@ export default function Login() {
             NeuraX
           </CardTitle>
           <CardDescription className="text-techWhite/70">
-            {mode === 'login' ? 'Accedi al tuo account' : 'Crea un nuovo account'}
+            {mode === 'login' ? 'Sign in to your account' : 'Create a new account'}
           </CardDescription>
         </CardHeader>
 
@@ -110,7 +110,7 @@ export default function Login() {
             className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 shadow-glow-sm"
           >
             <i className="fab fa-twitter mr-2"></i>
-            {(isLoginLoading || isRegisterLoading) ? 'Connessione...' : 'Continua con Twitter'}
+            {(isLoginLoading || isRegisterLoading) ? 'Connecting...' : 'Continue with Twitter'}
           </Button>
 
           <div className="relative">
@@ -118,7 +118,7 @@ export default function Login() {
               <span className="w-full border-t border-neonGreen/30" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-cyberDark px-2 text-techWhite/50">oppure</span>
+              <span className="bg-cyberDark px-2 text-techWhite/50">or</span>
             </div>
           </div>
 
@@ -132,7 +132,7 @@ export default function Login() {
                 <Input
                   name="username"
                   type="text"
-                  placeholder="Il tuo username"
+                  placeholder="Your username"
                   value={formData.username}
                   onChange={handleInputChange}
                   className="!bg-gray-900 !border-green-500/30 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500/20"
@@ -148,7 +148,7 @@ export default function Login() {
               <Input
                 name="email"
                 type="email"
-                placeholder="La tua email"
+                placeholder="Your email"
                 value={formData.email}
                 onChange={handleInputChange}
                 className="!bg-gray-900 !border-green-500/30 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500/20"
@@ -163,7 +163,7 @@ export default function Login() {
               <Input
                 name="password"
                 type="password"
-                placeholder="La tua password"
+                placeholder="Your password"
                 value={formData.password}
                 onChange={handleInputChange}
                 className="!bg-gray-900 !border-green-500/30 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500/20"
@@ -177,7 +177,7 @@ export default function Login() {
               disabled={mode === 'login' ? isLoginLoading : isRegisterLoading}
               className="w-full bg-gradient-to-r from-neonGreen to-cyberBlue hover:from-neonGreen/80 hover:to-cyberBlue/80 text-cyberDark font-semibold shadow-glow-sm"
             >
-              {(mode === 'login' ? isLoginLoading : isRegisterLoading) ? 'Caricamento...' : (mode === 'login' ? 'Accedi' : 'Registrati')}
+              {(mode === 'login' ? isLoginLoading : isRegisterLoading) ? 'Loading...' : (mode === 'login' ? 'Sign In' : 'Sign Up')}
             </Button>
           </form>
 
@@ -189,8 +189,8 @@ export default function Login() {
               className="text-sm text-neonGreen hover:text-neonGreen/80 transition-colors"
             >
               {mode === 'login' 
-                ? 'Non hai un account? Registrati' 
-                : 'Hai già un account? Accedi'
+                ? 'Don\'t have an account? Sign up' 
+                : 'Already have an account? Sign in'
               }
             </button>
           </div>

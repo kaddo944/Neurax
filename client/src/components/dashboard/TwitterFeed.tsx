@@ -39,14 +39,14 @@ const TwitterFeed: React.FC<TwitterFeedProps> = ({
           <div className="inline-block p-4 rounded-full bg-gradient-to-r from-cyberBlue/10 to-neonGreen/10 border border-cyberBlue/30 mb-4">
             <i className="fab fa-x-twitter text-cyberBlue text-3xl"></i>
           </div>
-          <h4 className="text-lg font-future text-cyberBlue mb-2">Twitter Non Connesso</h4>
-          <p className="text-matrixGreen/70 mb-6">Connetti il tuo account Twitter per vedere il feed dei tuoi post</p>
+          <h4 className="text-lg font-future text-cyberBlue mb-2">Twitter Not Connected</h4>
+          <p className="text-matrixGreen/70 mb-6">Connect your Twitter account to see your posts feed</p>
           <Link href="/settings">
             <CyberButton
               iconLeft={<i className="fas fa-plug-circle-plus"></i>}
               className="bg-gradient-to-r from-cyberBlue/20 to-cyberBlue/30 hover:from-cyberBlue/30 hover:to-cyberBlue/40"
             >
-              CONNETTI TWITTER
+              CONNECT TWITTER
             </CyberButton>
           </Link>
         </div>
@@ -99,14 +99,14 @@ const TwitterFeed: React.FC<TwitterFeedProps> = ({
           <div className="inline-block p-4 rounded-full bg-gradient-to-r from-cyberBlue/10 to-neonGreen/10 border border-cyberBlue/30 mb-4">
             <i className="fas fa-rss text-cyberBlue text-3xl"></i>
           </div>
-          <h4 className="text-lg font-future text-cyberBlue mb-2">Nessun Post Pubblicato</h4>
-          <p className="text-matrixGreen/70 mb-6">I tuoi post pubblicati su Twitter appariranno qui</p>
+          <h4 className="text-lg font-future text-cyberBlue mb-2">No Posts Published</h4>
+          <p className="text-matrixGreen/70 mb-6">Your published Twitter posts will appear here</p>
           <Link href="/manual-post">
             <CyberButton
               iconLeft={<i className="fas fa-pen-to-square"></i>}
               className="bg-gradient-to-r from-cyberBlue/20 to-neonGreen/20 hover:from-cyberBlue/30 hover:to-neonGreen/30"
             >
-              CREA PRIMO POST
+              CREATE FIRST POST
             </CyberButton>
           </Link>
         </div>
