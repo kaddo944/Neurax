@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # TwitterAiManager
 
 A full-stack application for managing Twitter interactions with AI-powered content generation and autonomous posting capabilities.
@@ -136,3 +137,6 @@ The application will be available at `http://localhost:5000`
 ## License
 
 MIT License
+=======
+# Neurax
+>>>>>>> 2c6c27ef36532e6f754bd1badd77c7a767a65fe6
