@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useTrading } from "@/hooks/use-trading";
+import { useCoinMarketCap } from "@/hooks/use-coinmarketcap";
 import Footer from "@/components/layout/Footer";
 import TradingTable from "@/components/trading/TradingTable";
 import TradingCall from "@/components/trading/TradingCall";
@@ -23,6 +24,17 @@ const CryptoTrading = () => {
     successRate,
     overallROI
   } = useTrading();
+  const {
+    dashboardData,
+    globalData,
+    isLoading: isCryptoLoading,
+    hasError: cryptoError,
+    formatCurrency,
+    formatPercentage,
+    getPercentageColor,
+    getPercentageIcon,
+    refreshAllData
+  } = useCoinMarketCap();
   const { toast } = useToast();
   
   const [selectedTab, setSelectedTab] = useState<"active" | "closed">("active");
@@ -110,59 +122,105 @@ const CryptoTrading = () => {
           titleColor="cyberBlue"
           className="md:col-span-2"
         >
-          <div className="space-y-3">
-            <div className="p-3 bg-spaceBlack border border-neonGreen/20 rounded flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="h-8 w-8 rounded-full bg-neonGreen/10 border border-neonGreen/30 flex items-center justify-center mr-2">
-                  <i className="fab fa-bitcoin text-neonGreen"></i>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-matrixGreen">Bitcoin (BTC)</p>
-                  <p className="text-xs text-techWhite/50">24h Volume: $21.4B</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-matrixGreen font-mono">$38,742</p>
-                <p className="text-neonGreen text-xs">+2.8% <i className="fas fa-arrow-up"></i></p>
-              </div>
+          {isCryptoLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-neonGreen"></div>
+              <span className="ml-2 text-matrixGreen">Loading market data...</span>
             </div>
-            
-            <div className="p-3 bg-spaceBlack border border-neonGreen/20 rounded flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="h-8 w-8 rounded-full bg-electricPurple/10 border border-electricPurple/30 flex items-center justify-center mr-2">
-                  <i className="fab fa-ethereum text-electricPurple"></i>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-matrixGreen">Ethereum (ETH)</p>
-                  <p className="text-xs text-techWhite/50">24h Volume: $9.7B</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-matrixGreen font-mono">$2,115</p>
-                <p className="text-neonGreen text-xs">+4.3% <i className="fas fa-arrow-up"></i></p>
-              </div>
+          ) : cryptoError ? (
+            <div className="text-center py-8">
+              <p className="text-red-400 mb-4">Error loading market data</p>
+              <CyberButton onClick={refreshAllData} size="sm">
+                <i className="fas fa-refresh mr-2"></i>Retry
+              </CyberButton>
             </div>
-            
-            <div className="p-3 bg-spaceBlack border border-neonGreen/20 rounded flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="h-8 w-8 rounded-full bg-cyberBlue/10 border border-cyberBlue/30 flex items-center justify-center mr-2">
-                  <i className="fas fa-chart-line text-cyberBlue"></i>
+          ) : (
+            <>
+              {/* Global Market Stats */}
+              {globalData?.data && (
+                <div className="mb-4 p-3 bg-gradient-to-r from-neonGreen/5 to-cyberBlue/5 border border-neonGreen/20 rounded">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div>
+                      <p className="text-xs text-matrixGreen/70">Total Market Cap</p>
+                      <p className="text-sm font-mono text-neonGreen">
+                        {formatCurrency(globalData.data.quote.USD.total_market_cap)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-matrixGreen/70">24h Volume</p>
+                      <p className="text-sm font-mono text-cyberBlue">
+                        {formatCurrency(globalData.data.quote.USD.total_volume_24h)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-matrixGreen/70">BTC Dominance</p>
+                      <p className="text-sm font-mono text-electricPurple">
+                        {globalData.data.btc_dominance?.toFixed(1)}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-matrixGreen/70">Active Cryptos</p>
+                      <p className="text-sm font-mono text-matrixGreen">
+                        {globalData.data.active_cryptocurrencies?.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-matrixGreen">Solana (SOL)</p>
-                  <p className="text-xs text-techWhite/50">24h Volume: $3.2B</p>
-                </div>
+              )}
+              
+              {/* Top Cryptocurrencies */}
+              <div className="space-y-3">
+                {dashboardData?.topCoins?.slice(0, 5).map((coin: any, index: number) => {
+                  const iconMap: { [key: string]: { icon: string; color: string } } = {
+                    'BTC': { icon: 'fab fa-bitcoin', color: 'neonGreen' },
+                    'ETH': { icon: 'fab fa-ethereum', color: 'electricPurple' },
+                    'BNB': { icon: 'fas fa-coins', color: 'yellow-400' },
+                    'SOL': { icon: 'fas fa-sun', color: 'cyberBlue' },
+                    'ADA': { icon: 'fas fa-heart', color: 'blue-400' },
+                    'AVAX': { icon: 'fas fa-mountain', color: 'red-400' },
+                    'DOT': { icon: 'fas fa-circle', color: 'pink-400' },
+                    'MATIC': { icon: 'fas fa-polygon', color: 'purple-400' }
+                  };
+                  
+                  const coinIcon = iconMap[coin.symbol] || { icon: 'fas fa-coins', color: 'matrixGreen' };
+                  const priceChange24h = coin.quote.USD.percent_change_24h;
+                  
+                  return (
+                    <div key={coin.id} className="p-3 bg-spaceBlack border border-neonGreen/20 rounded flex items-center justify-between hover:border-neonGreen/40 transition-colors">
+                      <div className="flex items-center">
+                        <div className={`h-8 w-8 rounded-full bg-${coinIcon.color}/10 border border-${coinIcon.color}/30 flex items-center justify-center mr-3`}>
+                          <i className={`${coinIcon.icon} text-${coinIcon.color}`}></i>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-matrixGreen">{coin.name} ({coin.symbol})</p>
+                          <p className="text-xs text-techWhite/50">
+                            Rank #{coin.cmc_rank} • Vol: {formatCurrency(coin.quote.USD.volume_24h)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-matrixGreen font-mono">
+                          {formatCurrency(coin.quote.USD.price)}
+                        </p>
+                        <p className={`text-xs ${getPercentageColor(priceChange24h)}`}>
+                          {formatPercentage(priceChange24h)} <i className={getPercentageIcon(priceChange24h)}></i>
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="text-right">
-                <p className="text-matrixGreen font-mono">$93.12</p>
-                <p className="text-red-400 text-xs">-1.5% <i className="fas fa-arrow-down"></i></p>
+              
+              <div className="flex items-center justify-between mt-4">
+                <p className="text-xs text-matrixGreen/50">
+                  <i className="fas fa-info-circle mr-1"></i> Data from CoinMarketCap • Updates every 5 min
+                </p>
+                <CyberButton onClick={refreshAllData} size="sm" variant="outline">
+                  <i className="fas fa-refresh mr-1"></i>Refresh
+                </CyberButton>
               </div>
-            </div>
-          </div>
-          
-          <p className="text-xs text-matrixGreen/50 mt-4 text-center">
-            <i className="fas fa-info-circle mr-1"></i> Market data refreshes every 15 minutes
-          </p>
+            </>
+          )}
         </DashboardCard>
       </div>
 

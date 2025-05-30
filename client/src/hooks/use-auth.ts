@@ -1,159 +1,161 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useLocation } from "wouter";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { User } from "@/types/index";
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiRequest } from '../lib/queryClient'
 
-interface LoginCredentials {
-  username: string;
-  password: string;
+export interface User {
+  id: number
+  email: string
+  username: string
+  twitterConnected?: boolean
+  twitterUsername?: string
 }
 
-interface RegisterCredentials {
-  username: string;
-  password: string;
-  email: string;
+export interface LoginCredentials {
+  email: string
+  password: string
+}
+
+export interface RegisterCredentials {
+  email: string
+  password: string
+  username: string
 }
 
 export function useAuth() {
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient()
 
-  // Get current user
-  const { data: user, error, isLoading: isLoadingUser, isError } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
-    retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes,
-    // Handle unauthorized error in queryClient
-    refetchOnWindowFocus: true, // Refresh on window focus
-    refetchOnReconnect: true,  // Refresh on reconnect
-    enabled: true, // Always enable but handle redirection separately
-  });
-  
-  // Set loading state when user query settles
-  useEffect(() => {
-    if (!isLoadingUser) {
-      setIsLoading(false);
-    }
-  }, [isLoadingUser]);
-
-  // Twitter Auth
-  const loginWithTwitter = async () => {
-    try {
-      const response = await apiRequest("GET", "/api/twitter/auth/login");
-      const data = await response.json();
-      
-      // Verifica l'URL generato per assicurarsi che sia corretto
-      console.log("[DEBUG] Twitter login URL generato:", data.url);
-      
-      if (data.url.includes('localhost') || data.url.includes('code_challenge_method=plain')) {
-        console.error("[ERRORE] URL di autenticazione Twitter non valido!");
-        toast({
-          title: "Errore configurazione",
-          description: "L'URL di callback Twitter non è configurato correttamente. Contatta il supporto.",
-          variant: "destructive",
-        });
-        return;
+  const { data: user, isLoading } = useQuery({
+    queryKey: ['user'],
+    queryFn: async () => {
+      try {
+        const response = await fetch('/api/auth/user', {
+          credentials: 'include'
+        })
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            return null // User not authenticated
+          }
+          throw new Error('Failed to fetch user')
+        }
+        
+        return await response.json()
+      } catch (error) {
+        console.error('Error fetching user:', error)
+        return null
       }
-      
-      // Redirect to Twitter auth URL
-      window.location.href = data.url;
-    } catch (error) {
-      console.error("Error initiating Twitter auth:", error);
-      toast({
-        title: "Twitter Login Failed",
-        description: "Could not initiate Twitter login. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
+    },
+    retry: false,
+    staleTime: 5 * 60 * 1000 // 5 minutes
+  })
 
-  // We don't need the redirect logic here anymore since it's handled by the ProtectedRoute component
-  // and the login page itself. This avoids circular redirects when multiple redirects happen simultaneously.
-
-  // Login mutation
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
-      const response = await apiRequest("POST", "/api/auth/login", credentials);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["/api/auth/user"], data);
-      toast({
-        title: "Login successful",
-        description: `Welcome back, ${data.username}!`,
-      });
-      setLocation("/dashboard");
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Login failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Register mutation
-  const registerMutation = useMutation({
-    mutationFn: async (credentials: RegisterCredentials) => {
-      const response = await apiRequest("POST", "/api/auth/register", credentials);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["/api/auth/user"], data);
-      toast({
-        title: "Registration successful",
-        description: `Welcome, ${data.username}!`,
-      });
-      setLocation("/dashboard");
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Registration failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Logout mutation
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/auth/logout");
-      return response.json();
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(credentials),
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Login failed')
+      }
+      
+      return await response.json()
     },
     onSuccess: () => {
-      queryClient.clear();
-      toast({
-        title: "Logout successful",
-        description: "You have been logged out.",
-      });
-      setLocation("/login");
+      queryClient.invalidateQueries({ queryKey: ['user'] })
+    }
+  })
+
+  const registerMutation = useMutation({
+    mutationFn: async (credentials: RegisterCredentials) => {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(credentials),
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Registration failed')
+      }
+      
+      return await response.json()
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Logout failed",
-        description: error.message,
-        variant: "destructive",
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] })
+    }
+  })
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Logout failed')
+      }
+      
+      return await response.json()
     },
-  });
+    onSuccess: () => {
+      queryClient.clear()
+    }
+  })
+
+  const loginWithTwitter = async () => {
+    const response = await fetch('/api/twitter/auth/login', {
+      credentials: 'include'
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to initiate Twitter login')
+    }
+    
+    const data = await response.json()
+    // Redirect to Twitter authorization URL
+    window.location.href = data.url
+    return data
+  }
+
+  const sendOTP = async (email: string) => {
+    // This functionality would need to be implemented on the server
+    throw new Error('OTP functionality not implemented with Express auth')
+  }
+
+  const verifyOTP = async (email: string, token: string) => {
+    // This functionality would need to be implemented on the server
+    throw new Error('OTP functionality not implemented with Express auth')
+  }
+
+  const resetPassword = async (email: string) => {
+    // This functionality would need to be implemented on the server
+    throw new Error('Password reset not implemented with Express auth')
+  }
 
   return {
     user,
     isAuthenticated: !!user,
-    isLoading: isLoading || isLoadingUser,
-    error,
-    login: loginMutation.mutate,
-    isLoggingIn: loginMutation.isPending,
-    register: registerMutation.mutate,
-    isRegistering: registerMutation.isPending,
-    logout: logoutMutation.mutate,
-    isLoggingOut: logoutMutation.isPending,
-    loginWithTwitter
-  };
+    isLoading,
+    login: loginMutation.mutateAsync,
+    register: registerMutation.mutateAsync,
+    logout: logoutMutation.mutateAsync,
+    loginWithTwitter,
+    sendOTP,
+    verifyOTP,
+    resetPassword,
+    isLoginLoading: loginMutation.isPending,
+    isRegisterLoading: registerMutation.isPending,
+    isLogoutLoading: logoutMutation.isPending
+  }
 }

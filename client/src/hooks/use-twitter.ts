@@ -49,8 +49,7 @@ export function useTwitter() {
       const response = await apiRequest("GET", "/api/twitter/auth");
       const data = await response.json();
       
-      // Debug delle informazioni sull'URL di autenticazione
-      console.log("[DEBUG] Twitter auth URL generato dal server:", data.url);
+
       
       // Verifica se l'URL è corretto (ha S256 come code_challenge_method)
       if (data.url.includes('code_challenge_method=plain') || data.url.includes('localhost')) {
@@ -89,18 +88,28 @@ export function useTwitter() {
       aiGenerated?: boolean;
       twitterAccountId?: number; // ID dell'account Twitter da utilizzare
     }) => {
-      const response = await apiRequest("POST", "/api/posts", postData);
-      return response.json();
+      try {
+        const response = await apiRequest("POST", "/api/posts", postData);
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Error creating post:', error);
+        throw error;
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts/scheduled"] });
       toast({
         title: "Success",
-        description: "Post created successfully",
+        description: data.scheduledFor 
+          ? "Post scheduled successfully" 
+          : "Post published successfully",
       });
+      // Note: Form reset should be handled by the calling component if needed
     },
     onError: (error: Error) => {
+      console.error('Post creation error:', error);
       toast({
         title: "Error",
         description: `Failed to create post: ${error.message}`,
@@ -142,55 +151,7 @@ export function useTwitter() {
     queryKey: ["/api/posts/scheduled"],
   });
 
-  // Invio di un tweet di test "Ciao Mondo"
-  const sendTestTweet = async (accountId?: number) => {
-    if (!isTwitterConnected) {
-      toast({
-        title: "Twitter non connesso",
-        description: "Per favore connetti il tuo account Twitter nelle impostazioni",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Verifica se è stato specificato un account o usa il default
-    const defaultTwitterAccount = twitterAccounts?.find(account => account.isDefault);
-    if (!defaultTwitterAccount && !accountId) {
-      toast({
-        title: "Nessun account Twitter predefinito",
-        description: "Imposta un account Twitter predefinito o specifica un ID account",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      const testPostData = {
-        content: "Ciao Mondo! Test da NeuraX - Social Media Manager AI 🤖 #NeuraxAI",
-        aiGenerated: false,
-        // Usa l'accountId specificato o l'ID dell'account predefinito
-        twitterAccountId: accountId || defaultTwitterAccount?.id
-      };
-      
-      // Usiamo direttamente la mutation per creare il post
-      await createPostMutation.mutateAsync(testPostData);
-      
-      toast({
-        title: "Tweet di test inviato!",
-        description: "Il tweet 'Ciao Mondo' è stato pubblicato con successo",
-      });
-      
-      return true;
-    } catch (error) {
-      console.error("Errore nell'invio del tweet di test:", error);
-      toast({
-        title: "Errore",
-        description: "Impossibile inviare il tweet di test. Controlla i logs per maggiori dettagli.",
-        variant: "destructive",
-      });
-      return false;
-    }
-  };
+
 
   // Imposta un account Twitter come default
   const setDefaultAccountMutation = useMutation({
@@ -249,7 +210,7 @@ export function useTwitter() {
     scheduledPosts: scheduledPosts || [],
     isLoadingPosts,
     isLoadingScheduledPosts,
-    sendTestTweet, // Funzione di test
+
     twitterAccounts: twitterAccounts || [],
     isLoadingTwitterAccounts,
     setDefaultAccount: setDefaultAccountMutation.mutate,

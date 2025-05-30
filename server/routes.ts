@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import session from "express-session";
@@ -10,9 +10,23 @@ import { insertUserSchema, insertPostSchema, insertTradingCallSchema } from "@sh
 import { twitterService } from "./services/twitter";
 import { aiService } from "./services/ai";
 import { cryptoService } from "./services/crypto";
+import { coinMarketCapService } from "./services/coinmarketcap";
 import { websocketService } from "./services/websocket";
+import { autonomousService, AutonomousConfig } from "./services/autonomous";
 import { WebSocketServer, WebSocket } from 'ws';
 import memorystore from 'memorystore';
+import { 
+  helmetConfig, 
+  generalLimiter, 
+  apiLimiter, 
+  authLimiter, 
+  aiLimiter,
+  validateInput,
+  errorHandler,
+  requestLogger
+} from './middleware/security';
+import { createLogger } from './utils/logger';
+import { cache, CacheKeys } from './utils/cache';
 
 // Extend express-session types to include our custom fields
 declare module 'express-session' {
@@ -25,6 +39,7 @@ declare module 'express-session' {
 
 // Setup session store
 const MemoryStore = memorystore(session);
+const logger = createLogger('Routes');
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create the HTTP server
@@ -35,6 +50,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize the WebSocket service with our WebSocket server
   websocketService.initialize(wss);
+
+  // Security middleware
+  app.use(helmetConfig);
+  app.use(requestLogger);
+  // Removed generalLimiter to allow free access to the site
+  app.use(validateInput);
+
+  // Removed general API rate limiting to allow free access
+  // Only specific endpoints (auth and AI) will have rate limiting
 
   // Configure session middleware
   app.use(
@@ -50,7 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // Middleware to check if user is authenticated
-  const isAuthenticated = (req: Request, res: Response, next: Function) => {
+  const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
     if (req.session && req.session.userId) {
       return next();
     }
@@ -60,7 +84,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AUTH ROUTES
 
   // Register a new user
-  app.post("/api/auth/register", async (req: Request, res: Response) => {
+  app.post("/api/auth/register", authLimiter, async (req: Request, res: Response) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       
@@ -102,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Login
-  app.post("/api/auth/login", async (req: Request, res: Response) => {
+  app.post("/api/auth/login", authLimiter, async (req: Request, res: Response) => {
     try {
       const { username, password } = req.body;
       
@@ -177,72 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // TWITTER INTEGRATION ROUTES
 
-  // Endpoint diagnostico per verificare le credenziali Twitter
-  app.get("/api/twitter/diagnostics", async (req: Request, res: Response) => {
-    try {
-      interface Diagnostics {
-        apiKey: string;
-        apiSecret: string;
-        bearerToken: string;
-        callbackUrl: string;
-        urlCallbackCorretto: string;
-        environmentVariablesOk: boolean;
-        sessionConfig: {
-          secure: boolean;
-          domain: string;
-          hasSession: boolean;
-        };
-        testApiResponse?: {
-          status: number;
-          ok: boolean;
-          statusText: string;
-        };
-        testApiError?: string;
-      }
-      
-      const diagnostics: Diagnostics = {
-        apiKey: process.env.TWITTER_API_KEY ? "Presente [" + process.env.TWITTER_API_KEY.substring(0, 5) + "...]" : "Mancante",
-        apiSecret: process.env.TWITTER_API_SECRET ? "Presente [" + process.env.TWITTER_API_SECRET.substring(0, 5) + "...]" : "Mancante",
-        bearerToken: process.env.TWITTER_BEARER_TOKEN ? "Presente [" + process.env.TWITTER_BEARER_TOKEN.substring(0, 5) + "...]" : "Mancante",
-        callbackUrl: process.env.TWITTER_CALLBACK_URL || "Mancante",
-        urlCallbackCorretto: "https://ba637891-195c-4db4-8b91-ec8a2771b16b-00-1llou1bj71p8d.kirk.replit.dev/api/auth/twitter/callback",
-        environmentVariablesOk: !!(process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET && process.env.TWITTER_BEARER_TOKEN && process.env.TWITTER_CALLBACK_URL),
-        sessionConfig: {
-          secure: req.secure,
-          domain: req.hostname,
-          hasSession: !!req.session,
-        }
-      };
-      
-      // Test della chiamata API Twitter non autenticata
-      try {
-        const testResponse = await fetch("https://api.twitter.com/2/users/me", {
-          headers: {
-            "Authorization": `Bearer ${process.env.TWITTER_BEARER_TOKEN}`
-          }
-        });
-        
-        diagnostics.testApiResponse = {
-          status: testResponse.status,
-          ok: testResponse.ok,
-          statusText: testResponse.statusText,
-        };
-        
-        if (!testResponse.ok) {
-          const errorData = await testResponse.text();
-          diagnostics.testApiError = errorData;
-        }
-      } catch (apiError: unknown) {
-        diagnostics.testApiError = apiError instanceof Error ? apiError.message : String(apiError);
-      }
-      
-      res.json(diagnostics);
-    } catch (error: unknown) {
-      console.error("Errore diagnostica Twitter:", error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      res.status(500).json({ message: "Errore durante la diagnostica", error: errorMessage });
-    }
-  });
+
 
   // Initiate Twitter OAuth 1.0a for connected users
   app.get("/api/twitter/auth", isAuthenticated, async (req: Request, res: Response) => {
@@ -592,8 +551,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const post = await storage.createPost(postData);
       
-      // If post is scheduled for now or past, publish it
-      if (post.scheduledFor && new Date(post.scheduledFor) <= new Date()) {
+      // If post is scheduled for now or past, OR if no schedule is set (immediate publish), publish it
+      if ((post.scheduledFor && new Date(post.scheduledFor) <= new Date()) || !post.scheduledFor) {
         // Se è specificato un account Twitter per il post, usalo, altrimenti usa l'account predefinito
         let twitterAccount = null;
         
@@ -608,6 +567,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Post to Twitter with OAuth 1.0a
+      console.log('🐦 Tentativo di pubblicazione su Twitter per post ID:', post.id);
+      console.log('🔑 Account Twitter:', twitterAccount.twitterId);
+      console.log('📝 Contenuto:', post.content);
+      
+      try {
         const tweetResult = await twitterService.postTweet(
           twitterAccount.accessToken,
           twitterAccount.accessTokenSecret || '',  // Token secret è obbligatorio per OAuth 1.0a
@@ -615,11 +579,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           post.imageUrl ? post.imageUrl : undefined
         );
         
+        console.log('✅ Tweet pubblicato con successo! ID:', tweetResult.id);
+        console.log('🔗 URL:', tweetResult.url);
+        
         // Update post with Twitter ID and published status
         await storage.updatePost(post.id, {
           twitterId: tweetResult.id,
           published: true
         });
+        
+      } catch (twitterError: any) {
+        console.error('❌ Errore durante la pubblicazione su Twitter:', twitterError.message);
+        console.error('📋 Dettagli errore:', twitterError);
+        
+        // Il post è stato salvato nel database ma non pubblicato su Twitter
+        // Restituiamo comunque successo ma con un warning
+        console.log('⚠️ Post salvato nel database ma non pubblicato su Twitter');
+      }
       }
       
       res.status(201).json(post);
@@ -663,7 +639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI ROUTES
 
   // Generate AI text content
-  app.post("/api/ai/generate-text", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/ai/generate-text", aiLimiter, async (req: Request, res: Response) => {
     try {
       const { topic, contentType, tone, maxLength } = req.body;
       
@@ -686,7 +662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate AI image
-  app.post("/api/ai/generate-image", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/ai/generate-image", aiLimiter, async (req: Request, res: Response) => {
     try {
       const { prompt } = req.body;
       
@@ -694,7 +670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Prompt is required" });
       }
       
-      const imageUrl = await aiService.generateImage(prompt);
+      const imageUrl = await aiService.generateImage(prompt, 'crypto');
       res.json({ imageUrl });
     } catch (error) {
       console.error("AI image generation error:", error);
@@ -855,6 +831,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // COINMARKETCAP API ROUTES
+
+  // Get latest cryptocurrency listings from CoinMarketCap
+  app.get("/api/coinmarketcap/listings", async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const convert = req.query.convert as string || 'USD';
+      const data = await coinMarketCapService.getLatestListings(limit, convert);
+      res.json(data);
+    } catch (error) {
+      console.error("CoinMarketCap listings error:", error);
+      res.status(500).json({ message: "Error fetching cryptocurrency listings" });
+    }
+  });
+
+  // Get specific cryptocurrency quotes
+  app.get("/api/coinmarketcap/quotes", async (req: Request, res: Response) => {
+    try {
+      const symbols = req.query.symbols as string;
+      if (!symbols) {
+        return res.status(400).json({ message: "Symbols parameter is required" });
+      }
+      const convert = req.query.convert as string || 'USD';
+      const symbolsArray = symbols.split(',').map(s => s.trim().toUpperCase());
+      const data = await coinMarketCapService.getCryptocurrencyQuotes(symbolsArray, convert);
+      res.json(data);
+    } catch (error) {
+      console.error("CoinMarketCap quotes error:", error);
+      res.status(500).json({ message: "Error fetching cryptocurrency quotes" });
+    }
+  });
+
+  // Get global cryptocurrency metrics
+  app.get("/api/coinmarketcap/global", async (req: Request, res: Response) => {
+    try {
+      const convert = req.query.convert as string || 'USD';
+      const data = await coinMarketCapService.getGlobalMetrics(convert);
+      res.json(data);
+    } catch (error) {
+      console.error("CoinMarketCap global metrics error:", error);
+      res.status(500).json({ message: "Error fetching global metrics" });
+    }
+  });
+
+  // Get trending cryptocurrencies (top gainers from listings)
+  app.get("/api/coinmarketcap/trending", async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      // Get listings and filter for top gainers
+      const listings = await coinMarketCapService.getLatestListings(50);
+      const trending = listings.data ? 
+        listings.data
+          .filter((coin: any) => coin.quote.USD.percent_change_24h > 0)
+          .sort((a: any, b: any) => b.quote.USD.percent_change_24h - a.quote.USD.percent_change_24h)
+          .slice(0, limit) : [];
+      
+      res.json({ data: trending });
+    } catch (error) {
+      console.error("CoinMarketCap trending error:", error);
+      res.status(500).json({ message: "Error fetching trending cryptocurrencies" });
+    }
+  });
+
+  // Get formatted crypto data for the trading page
+  app.get("/api/coinmarketcap/dashboard", async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const data = await coinMarketCapService.getFormattedCryptoData(limit);
+      res.json(data);
+    } catch (error) {
+      console.error("CoinMarketCap dashboard data error:", error);
+      res.status(500).json({ message: "Error fetching dashboard data" });
+    }
+  });
+
+  // Get cryptocurrency info/metadata
+  app.get("/api/coinmarketcap/info", async (req: Request, res: Response) => {
+    try {
+      const symbols = req.query.symbols as string;
+      if (!symbols) {
+        return res.status(400).json({ message: "Symbols parameter is required" });
+      }
+      const symbolsArray = symbols.split(',').map(s => s.trim().toUpperCase());
+      const data = await coinMarketCapService.getCryptocurrencyInfo(symbolsArray);
+      res.json(data);
+    } catch (error) {
+      console.error("CoinMarketCap info error:", error);
+      res.status(500).json({ message: "Error fetching cryptocurrency info" });
+    }
+  });
+
+  // Convert currency
+  app.get("/api/coinmarketcap/convert", async (req: Request, res: Response) => {
+    try {
+      const amount = parseFloat(req.query.amount as string);
+      const symbol = req.query.symbol as string;
+      const convert = req.query.convert as string || 'USD';
+      
+      if (!amount || !symbol) {
+        return res.status(400).json({ message: "Amount and symbol parameters are required" });
+      }
+      
+      const data = await coinMarketCapService.convertCurrency(amount, symbol.toUpperCase(), convert);
+      res.json(data);
+    } catch (error) {
+      console.error("CoinMarketCap convert error:", error);
+      res.status(500).json({ message: "Error converting currency" });
+    }
+  });
+
   // METRICS ROUTES
 
   // Get user metrics
@@ -923,9 +1009,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Here we're just returning an empty success
       res.json({ message: "Metrics update triggered" });
     } catch (error) {
-      res.status(500).json({ message: "Error triggering metrics update" });
+      console.error("System metrics update error:", error);
+      res.status(500).json({ message: "Failed to update metrics" });
     }
   });
+
+  // AUTONOMOUS AI ROUTES
+
+  // Start autonomous mode
+  app.post("/api/autonomous/start", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId as number;
+      
+      // Default autonomous configuration
+      const config: AutonomousConfig = {
+        enabled: true,
+        checkIntervalMinutes: req.body.checkIntervalMinutes || 15,
+        maxRepliesPerHour: req.body.maxRepliesPerHour || 10,
+        autoReplyToMentions: req.body.autoReplyToMentions !== false,
+        autoEngageWithTimeline: req.body.autoEngageWithTimeline !== false,
+        engagementThreshold: req.body.engagementThreshold || 5,
+        keywords: req.body.keywords || ['crypto', 'bitcoin', 'ethereum', 'trading', 'defi', 'nft', 'blockchain']
+      };
+      
+      await autonomousService.start(userId, config);
+      
+      res.json({ 
+        message: "Autonomous mode started successfully",
+        config 
+      });
+    } catch (error) {
+      console.error("Autonomous start error:", error);
+      res.status(500).json({ message: "Failed to start autonomous mode" });
+    }
+  });
+
+  // Stop autonomous mode
+  app.post("/api/autonomous/stop", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      autonomousService.stop();
+      res.json({ message: "Autonomous mode stopped successfully" });
+    } catch (error) {
+      console.error("Autonomous stop error:", error);
+      res.status(500).json({ message: "Failed to stop autonomous mode" });
+    }
+  });
+
+  // Get autonomous status
+  app.get("/api/autonomous/status", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const status = autonomousService.getStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Autonomous status error:", error);
+      res.status(500).json({ message: "Failed to get autonomous status" });
+    }
+  });
+
+  // Get autonomous activities
+  app.get("/api/autonomous/activities", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const activities = autonomousService.getRecentActivities(limit);
+      res.json(activities);
+    } catch (error) {
+      console.error("Autonomous activities error:", error);
+      res.status(500).json({ message: "Failed to get autonomous activities" });
+    }
+  });
+
+
+
+  // Error handling middleware (must be last)
+  app.use(errorHandler);
 
   return httpServer;
 }

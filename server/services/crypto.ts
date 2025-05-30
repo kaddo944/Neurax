@@ -6,10 +6,6 @@ export class CryptoService {
   constructor() {
     this.apiKey = process.env.COINGECKO_API_KEY || '';
     this.baseUrl = 'https://api.coingecko.com/api/v3';
-
-    if (!this.apiKey) {
-      console.warn('CoinGecko API key not configured, using public API with rate limits');
-    }
   }
 
   // Get current price for a cryptocurrency

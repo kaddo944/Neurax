@@ -16,6 +16,10 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   email: true,
+}).extend({
+  email: z.string().min(1, "Email is required").email("Invalid email address").trim().toLowerCase(),
+  username: z.string().min(3, "Username must be at least 3 characters").trim(),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 // Twitter accounts table (for multi-account support)

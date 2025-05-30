@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Switch, Route, useLocation, Redirect } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +13,12 @@ import CryptoTrading from "@/pages/crypto-trading";
 import Analytics from "@/pages/analytics";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
+import AuthCallback from "@/pages/AuthCallback";
+import About from "@/pages/about";
+import Contact from "@/pages/contact";
+import Privacy from "@/pages/privacy";
+import Terms from "@/pages/terms";
+import FAQ from "@/pages/faq";
 
 // Components
 import Sidebar from "@/components/layout/Sidebar";
@@ -103,14 +109,25 @@ function App() {
       <main className={`${showSidebar ? 'lg:ml-64' : ''} min-h-screen ${showSidebar ? 'pt-16 lg:pt-0' : ''} pb-16 transition-all duration-300`}>
         <Switch>
           <Route path="/login" component={Login} />
+          <Route path="/auth/callback" component={AuthCallback} />
           
-          {/* Protected Routes */}
+          {/* Root redirect to dashboard */}
           <Route path="/">
-            {() => (
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            )}
+            {() => {
+              if (isLoading) {
+                return (
+                  <div className="container mx-auto p-4 pt-8">
+                    <div className="border border-neonGreen/20 rounded-lg bg-cyberDark/30 backdrop-blur-lg p-6 shadow-glow-sm">
+                      <div className="h-8 w-64 bg-cyberDark/50 mb-6 animate-pulse rounded" />
+                    </div>
+                  </div>
+                );
+              }
+              if (!user) {
+                return <Redirect to="/login" />;
+              }
+              return <Redirect to="/dashboard" />;
+            }}
           </Route>
           
           <Route path="/dashboard">
@@ -160,6 +177,13 @@ function App() {
               </ProtectedRoute>
             )}
           </Route>
+          
+          {/* Public pages - no authentication required */}
+          <Route path="/about" component={About} />
+          <Route path="/contact" component={Contact} />
+          <Route path="/privacy" component={Privacy} />
+          <Route path="/terms" component={Terms} />
+          <Route path="/faq" component={FAQ} />
           
           <Route>
             {() => (

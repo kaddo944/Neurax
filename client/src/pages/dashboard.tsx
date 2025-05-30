@@ -6,6 +6,7 @@ import Footer from "@/components/layout/Footer";
 import StatCard from "@/components/dashboard/StatCard";
 import Timeline from "@/components/dashboard/Timeline";
 import DashboardCard from "@/components/dashboard/DashboardCard";
+import TwitterFeed from "@/components/dashboard/TwitterFeed";
 import { CyberButton } from "@/components/ui/cyber-button";
 import { LoadingBar } from "@/components/ui/loading-bar";
 import { Link } from "wouter";
@@ -491,6 +492,11 @@ const Dashboard = () => {
             </CyberButton>
           </div>
         </DashboardCard>
+      </div>
+
+      {/* Twitter Feed Section */}
+      <div className="mb-8">
+        <TwitterFeed maxPosts={8} className="" />
       </div>
 
       {/* Quick Actions Panel 2025 */}

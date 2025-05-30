@@ -91,7 +91,9 @@ export function useWebSocket() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     // Include user ID if authenticated
     const userId = user ? `&userId=${user.id}` : '';
-    const wsUrl = `${protocol}//${window.location.host}/ws?clientId=${clientIdRef.current}${userId}`;
+    // Use explicit port for development environment
+    const host = window.location.hostname === 'localhost' ? 'localhost:5000' : window.location.host;
+    const wsUrl = `${protocol}//${host}/ws?clientId=${clientIdRef.current}${userId}`;
     
     console.log(`Connecting to WebSocket at ${wsUrl}`);
     const socket = new WebSocket(wsUrl);

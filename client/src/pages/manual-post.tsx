@@ -29,14 +29,15 @@ const postSchema = z.object({
 });
 
 const ManualPost = () => {
-  const { isTwitterConnected, createPost } = useTwitter();
+  const { isTwitterConnected, createPost, twitterAccounts, isCreatingPost } = useTwitter();
   const { generateText, isGeneratingText, generatedText, generateImage, isGeneratingImage, generatedImage } = useAI();
   const { toast } = useToast();
   
   const [selectedTab, setSelectedTab] = useState<string>("compose");
   const [aiProgress, setAiProgress] = useState<number>(0);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isPosting, setIsPosting] = useState(false);
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiContentType, setAiContentType] = useState("tweet");
 
   // Setup form
   const form = useForm<z.infer<typeof postSchema>>({
@@ -50,10 +51,7 @@ const ManualPost = () => {
 
   // AI content generation
   const handleAiGenerate = () => {
-    const topicInput = document.getElementById("topic") as HTMLInputElement;
-    const contentTypeSelect = document.getElementById("contentType") as HTMLSelectElement;
-    
-    if (!topicInput || !contentTypeSelect || !topicInput.value) {
+    if (!aiTopic) {
       toast({
         title: "Error",
         description: "Please enter a topic for AI generation",
@@ -61,11 +59,7 @@ const ManualPost = () => {
       });
       return;
     }
-    
-    const topic = topicInput.value;
-    const contentType = contentTypeSelect.value as "tweet" | "thread" | "reply" | "meme";
-    
-    // AI processing animation
+
     setAiProgress(0);
     const interval = setInterval(() => {
       setAiProgress((prev) => {
@@ -73,16 +67,14 @@ const ManualPost = () => {
         return newValue >= 100 ? 100 : newValue;
       });
     }, 200);
-    
-    // Generate content
+
     generateText({
-      topic,
-      contentType,
+      topic: aiTopic,
+      contentType: aiContentType as "tweet" | "thread" | "reply" | "meme",
       tone: "confident,trader",
       maxLength: 280,
     });
-    
-    // Cleanup interval after generation
+
     setTimeout(() => {
       clearInterval(interval);
       setAiProgress(100);
@@ -122,13 +114,21 @@ const ManualPost = () => {
       });
       return;
     }
-    
-    setIsPosting(true);
+
+    if (!twitterAccounts || twitterAccounts.length === 0) {
+      toast({
+        title: "No Twitter Account",
+        description: "Please connect at least one Twitter account in Settings",
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Prepare post data
     const postData: any = {
       content: values.content,
       aiGenerated: false,
+      twitterAccountId: twitterAccounts[0]?.id // Use the first Twitter account
     };
     
     // Add image if available
@@ -141,22 +141,8 @@ const ManualPost = () => {
       postData.scheduledFor = new Date(values.scheduledFor).toISOString();
     }
     
-    // Create the post
+    // Create the post using the mutation
     createPost(postData);
-    
-    // Reset form after submission
-    setTimeout(() => {
-      form.reset();
-      setImagePreview(null);
-      setIsPosting(false);
-      
-      toast({
-        title: "Success",
-        description: values.scheduledFor 
-          ? "Post scheduled successfully" 
-          : "Post published successfully",
-      });
-    }, 1500);
   };
 
   // Update image preview when AI generates one
@@ -165,6 +151,19 @@ const ManualPost = () => {
       setImagePreview(generatedImage);
     }
   }, [generatedImage]);
+
+  // Reset form when post creation is completed successfully
+  const [wasCreating, setWasCreating] = React.useState(false);
+  React.useEffect(() => {
+    if (wasCreating && !isCreatingPost) {
+      // Post creation completed, reset form
+      form.reset();
+      setImagePreview(null);
+      setWasCreating(false);
+    } else if (isCreatingPost) {
+      setWasCreating(true);
+    }
+  }, [isCreatingPost, wasCreating, form]);
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -275,10 +274,10 @@ const ManualPost = () => {
                         <CyberButton
                           type="submit"
                           className="w-full"
-                          disabled={isPosting || !isTwitterConnected}
+                          disabled={isCreatingPost || !isTwitterConnected}
                           iconLeft={<i className="fas fa-paper-plane"></i>}
                         >
-                          {isPosting ? (
+                          {isCreatingPost ? (
                             <>
                               <span className="animate-spin mr-2">
                                 <i className="fas fa-circle-notch"></i>
@@ -308,6 +307,8 @@ const ManualPost = () => {
                         <label className="text-matrixGreen text-sm mb-1 block">Topic</label>
                         <Input
                           id="topic"
+                          value={aiTopic}
+                          onChange={e => setAiTopic(e.target.value)}
                           placeholder="e.g., Bitcoin price prediction, NFT trends, DeFi protocols"
                           className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen text-matrixGreen"
                         />
@@ -315,7 +316,7 @@ const ManualPost = () => {
                       
                       <div>
                         <label className="text-matrixGreen text-sm mb-1 block">Content Type</label>
-                        <Select defaultValue="tweet" id="contentType">
+                        <Select value={aiContentType} onValueChange={setAiContentType}>
                           <SelectTrigger className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen text-matrixGreen">
                             <SelectValue placeholder="Select content type" />
                           </SelectTrigger>

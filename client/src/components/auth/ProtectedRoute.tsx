@@ -35,6 +35,11 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
+  // Don't render anything if not authenticated (prevents API calls)
+  if (!user) {
+    return null;
+  }
+
   // Render children only if authenticated
-  return user ? <>{children}</> : null;
+  return <>{children}</>;
 }

@@ -96,12 +96,28 @@ const Sidebar = ({ open, setOpen, onLogout, username }: SidebarProps) => {
         </nav>
 
         <div className="absolute bottom-6 left-4 right-4">
-          <a
-            href="#"
-            className="text-xs text-center text-techWhite/60 hover:text-techWhite block mb-2"
-          >
-            <i className="fas fa-info-circle mr-1"></i> Help & Documentation
-          </a>
+          <div className="grid grid-cols-2 gap-1 text-xs mb-3">
+            <Link href="/about">
+              <div className="text-center text-techWhite/60 hover:text-neonGreen transition-colors p-1">
+                About
+              </div>
+            </Link>
+            <Link href="/contact">
+              <div className="text-center text-techWhite/60 hover:text-neonGreen transition-colors p-1">
+                Contact
+              </div>
+            </Link>
+            <Link href="/faq">
+              <div className="text-center text-techWhite/60 hover:text-neonGreen transition-colors p-1">
+                FAQ
+              </div>
+            </Link>
+            <Link href="/privacy">
+              <div className="text-center text-techWhite/60 hover:text-neonGreen transition-colors p-1">
+                Privacy
+              </div>
+            </Link>
+          </div>
           <CyberButton
             className="w-full"
             onClick={onLogout}

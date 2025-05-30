@@ -1,0 +1,114 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linting
+      run: npm run lint
+    
+    - name: Run type checking
+      run: npm run type-check
+    
+    - name: Run tests
+      run: npm test
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        NODE_ENV: test
+    
+    - name: Run test coverage
+      run: npm run test:coverage
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+    
+    - name: Build application
+      run: npm run build
+    
+    - name: Run E2E tests
+      run: npm run test:e2e
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run security audit
+      run: npm audit --audit-level moderate
+    
+    - name: Run dependency check
+      uses: actions/dependency-review-action@v3
+      if: github.event_name == 'pull_request'
+
+  deploy:
+    needs: [test, security]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build application
+      run: npm run build
+    
+    - name: Deploy to production
+      run: |
+        echo "Deployment step - configure based on your hosting platform"
+        # Add your deployment commands here
+        # Examples:
+        # - Deploy to Vercel: npx vercel --prod
+        # - Deploy to Railway: railway up
+        # - Deploy to Docker: docker build and push
+      env:
+        DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}

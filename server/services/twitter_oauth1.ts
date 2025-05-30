@@ -218,39 +218,60 @@ export class XService {
     if (!this.checkCredentials()) {
       throw new Error('Twitter API credentials not configured');
     }
-    
+    let mediaId: string | undefined = undefined;
+    // Se c'è un'immagine in base64, caricala su Twitter
+    if (imageUrl && imageUrl.startsWith('data:image/')) {
+      // Estrai solo la parte base64
+      const base64Data = imageUrl.split(',')[1];
+      const uploadRequest = {
+        url: 'https://upload.twitter.com/1.1/media/upload.json',
+        method: 'POST',
+        data: { media_data: base64Data }
+      };
+      const uploadHeaders = this.oauth1Client.toHeader(
+        this.oauth1Client.authorize(uploadRequest, { key: accessToken, secret: accessTokenSecret })
+      );
+      const uploadResponse = await fetch(uploadRequest.url, {
+        method: uploadRequest.method,
+        headers: {
+          ...uploadHeaders,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({ media_data: base64Data }).toString()
+      });
+      if (!uploadResponse.ok) {
+        throw new Error(`Twitter image upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+      }
+      const uploadData = await uploadResponse.json() as any;
+      mediaId = uploadData.media_id_string;
+    }
     // Costruzione richiesta per API v1.1 (OAuth 1.0a)
     const requestData = {
       url: 'https://api.twitter.com/1.1/statuses/update.json',
       method: 'POST',
-      data: { status: text }
+      data: mediaId ? { status: text, media_ids: mediaId } : { status: text }
     };
-    
     const headers = this.oauth1Client.toHeader(
       this.oauth1Client.authorize(
         requestData,
         { key: accessToken, secret: accessTokenSecret }
       )
     );
-    
     try {
-      // In una implementazione reale, qui si gestirebbe il caricamento immagini
-      // Per ora, ignoriamo l'imageUrl ma non generiamo errori
-      console.log("Pubblicazione tweet:", text, imageUrl ? "(con immagine)" : "(senza immagine)");
-      
+      console.log("Pubblicazione tweet:", text, mediaId ? "(con immagine)" : "(senza immagine)");
       const response = await fetch(requestData.url, {
         method: requestData.method,
         headers: {
           ...headers,
           'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: new URLSearchParams({ status: text }).toString()
+        body: mediaId
+          ? new URLSearchParams({ status: text, media_ids: mediaId }).toString()
+          : new URLSearchParams({ status: text }).toString()
       });
-      
       if (!response.ok) {
         throw new Error(`Twitter post tweet failed: ${response.status} ${response.statusText}`);
       }
-      
       const data = await response.json() as { id_str: string };
       return {
         id: data.id_str,

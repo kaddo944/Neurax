@@ -61,6 +61,14 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Custom cyberpunk theme colors
+        cyberDark: "#0a0a0a",
+        neonGreen: "#39ff14",
+        techWhite: "#f0f0f0",
+        cyberBlue: "#00ffff",
+        electricPurple: "#8a2be2",
+        spaceBlack: "#000000",
+        matrixGreen: "#00ff00",
       },
       keyframes: {
         "accordion-down": {

@@ -163,15 +163,30 @@ export class XService {
       
       console.log("Pubblicazione tweet:", text, imageUrl ? "(con immagine)" : "(senza immagine)");
       
-      // Se c'è un'immagine, caricala e allega
+      let mediaIds = [];
+      
+      // Se c'è un'immagine, scaricala e caricala su Twitter
       if (imageUrl) {
-        // Nota: In un caso reale, dovremmo scaricare l'immagine e caricarla
-        // Per questo esempio, simuliamo un tweet solo con testo
-        console.log("Caricamento immagine non implementato in questa versione");
+        try {
+          // Scarica l'immagine
+          const response = await fetch(imageUrl);
+          const buffer = await response.arrayBuffer();
+          
+          // Carica l'immagine su Twitter
+          const mediaId = await rwClient.v1.uploadMedia(buffer, { mimeType: response.headers.get('content-type') });
+          mediaIds.push(mediaId);
+          
+          console.log("Immagine caricata con successo, mediaId:", mediaId);
+        } catch (error) {
+          console.error('Errore nel caricamento dell\'immagine:', error);
+          throw new Error(`Failed to upload image: ${error.message}`);
+        }
       }
       
-      // Pubblica tweet
-      const tweet = await rwClient.v2.tweet(text);
+      // Pubblica tweet con o senza immagine
+      const tweet = await rwClient.v2.tweet(text, mediaIds.length > 0 ? {
+        media: { media_ids: mediaIds }
+      } : undefined);
       
       return {
         id: tweet.data.id,
@@ -183,6 +198,129 @@ export class XService {
     }
   }
   
+  // Get home timeline tweets
+  async getHomeTimeline(
+    accessToken: string,
+    accessTokenSecret: string,
+    maxResults: number = 10
+  ): Promise<any[]> {
+    if (!this.checkCredentials()) {
+      throw new Error('Twitter API credentials not configured');
+    }
+    
+    try {
+      const client = this.getUserClient(accessToken, accessTokenSecret);
+      const roClient = client.readOnly;
+      
+      console.log("Fetching home timeline...");
+      
+      const timeline = await roClient.v2.homeTimeline({
+        max_results: maxResults,
+        'tweet.fields': ['created_at', 'author_id', 'public_metrics', 'context_annotations'],
+        'user.fields': ['username', 'name']
+      });
+      
+      return timeline.data?.data || [];
+    } catch (error: any) {
+      console.error('Twitter get home timeline error:', error);
+      throw new Error(`Failed to get home timeline: ${error.message}`);
+    }
+  }
+
+  // Get mentions for the authenticated user
+  async getMentions(
+    accessToken: string,
+    accessTokenSecret: string,
+    maxResults: number = 10
+  ): Promise<any[]> {
+    if (!this.checkCredentials()) {
+      throw new Error('Twitter API credentials not configured');
+    }
+    
+    try {
+      const client = this.getUserClient(accessToken, accessTokenSecret);
+      const roClient = client.readOnly;
+      
+      console.log("Fetching mentions...");
+      
+      const mentions = await roClient.v2.userMentionTimeline({
+        max_results: maxResults,
+        'tweet.fields': ['created_at', 'author_id', 'public_metrics', 'context_annotations', 'in_reply_to_user_id'],
+        'user.fields': ['username', 'name']
+      });
+      
+      return mentions.data?.data || [];
+    } catch (error: any) {
+      console.error('Twitter get mentions error:', error);
+      throw new Error(`Failed to get mentions: ${error.message}`);
+    }
+  }
+
+  // Reply to a specific tweet
+  async replyToTweet(
+    accessToken: string,
+    accessTokenSecret: string,
+    text: string,
+    replyToTweetId: string,
+    imageUrl?: string
+  ): Promise<any> {
+    if (!this.checkCredentials()) {
+      throw new Error('Twitter API credentials not configured');
+    }
+    
+    try {
+      const client = this.getUserClient(accessToken, accessTokenSecret);
+      const rwClient = client.readWrite;
+      
+      console.log("Replying to tweet:", replyToTweetId);
+      console.log("Reply text:", text);
+      
+      let mediaId: string | undefined;
+      
+      // Upload image if provided
+      if (imageUrl) {
+        try {
+          console.log("Uploading image for reply:", imageUrl);
+          
+          // Download image
+          const response = await fetch(imageUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to download image: ${response.statusText}`);
+          }
+          
+          const imageBuffer = Buffer.from(await response.arrayBuffer());
+          
+          // Upload to Twitter
+          mediaId = await rwClient.v1.uploadMedia(imageBuffer, { mimeType: 'image/png' });
+          console.log("Image uploaded successfully, media ID:", mediaId);
+        } catch (imageError: any) {
+          console.error('Image upload failed for reply:', imageError);
+          // Continue without image if upload fails
+        }
+      }
+      
+      // Post reply
+      const tweetOptions: any = {
+        text: text,
+        reply: {
+          in_reply_to_tweet_id: replyToTweetId
+        }
+      };
+      
+      if (mediaId) {
+        tweetOptions.media = { media_ids: [mediaId] };
+      }
+      
+      const result = await rwClient.v2.tweet(tweetOptions);
+      
+      console.log("Reply posted successfully:", result.data?.id);
+      return result.data;
+    } catch (error: any) {
+      console.error('Twitter reply error:', error);
+      throw new Error(`Failed to reply to tweet: ${error.message}`);
+    }
+  }
+
   // Ottieni metriche utente con OAuth 1.0a
   async getUserMetrics(
     accessToken: string,

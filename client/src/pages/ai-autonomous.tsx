@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useTwitter } from "@/hooks/use-twitter";
 import { useTrading } from "@/hooks/use-trading";
 import { useAI } from "@/hooks/use-ai";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Footer from "@/components/layout/Footer";
 import AIStatus from "@/components/ai/AIStatus";
 import AIPersona from "@/components/ai/AIPersona";
@@ -42,22 +42,104 @@ const AIAutonomous = () => {
   const { tradingCalls, generateCall } = useTrading();
   const { generatePersonaResponse } = useAI();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [autonomousConfig, setAutonomousConfig] = useState({
+    checkIntervalMinutes: 15,
+    maxRepliesPerHour: 10,
+    autoReplyToMentions: true,
+    autoEngageWithTimeline: true,
+    engagementThreshold: 5,
+    keywords: ['crypto', 'bitcoin', 'ethereum', 'trading', 'defi', 'nft', 'blockchain']
+  });
 
   // Get metrics data
   const { data: metrics } = useQuery<MetricsData>({
     queryKey: ["/api/metrics"],
   });
 
+  // Get autonomous status
+  const { data: autonomousStatus, refetch: refetchStatus } = useQuery({
+    queryKey: ["/api/autonomous/status"],
+    refetchInterval: 5000, // Refresh every 5 seconds
+  });
+
+  // Get autonomous activities
+  const { data: autonomousActivities } = useQuery({
+    queryKey: ["/api/autonomous/activities"],
+    refetchInterval: 10000, // Refresh every 10 seconds
+  });
+
+  // Start autonomous mode mutation
+  const startAutonomousMutation = useMutation({
+    mutationFn: async (config: any) => {
+      const response = await fetch('/api/autonomous/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      if (!response.ok) throw new Error('Failed to start autonomous mode');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Autonomous Mode Started",
+        description: "AI is now monitoring and responding autonomously",
+      });
+      refetchStatus();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start autonomous mode",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Stop autonomous mode mutation
+  const stopAutonomousMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/autonomous/stop', {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to stop autonomous mode');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Autonomous Mode Stopped",
+        description: "AI autonomous operations have been halted",
+      });
+      refetchStatus();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to stop autonomous mode",
+        variant: "destructive",
+      });
+    },
+  });
+
   // System metrics
   const systemResources = 87;
   const apiCredits = 62;
   const learningProgress = 94;
-  const latestLog = "Successfully analyzed 230 trending posts. Generated 14 content ideas. Scheduled 3 posts for optimal engagement.";
+  const latestLog = autonomousStatus?.recentActivities?.[0]?.content || "Successfully analyzed 230 trending posts. Generated 14 content ideas. Scheduled 3 posts for optimal engagement.";
+
+  // Handle autonomous mode toggle
+  const handleAutonomousToggle = () => {
+    if (autonomousStatus?.isRunning) {
+      stopAutonomousMutation.mutate();
+    } else {
+      startAutonomousMutation.mutate(autonomousConfig);
+    }
+  };
 
   // AI Persona
   const personaName = "NEURAX-3000";
@@ -120,8 +202,16 @@ const AIAutonomous = () => {
     }
   };
 
-  // Recent activity items
-  const recentActivities: TimelineItem[] = [
+  // Convert autonomous activities to timeline items
+  const recentActivities: TimelineItem[] = autonomousActivities?.map((activity: any) => ({
+    id: activity.id,
+    content: activity.content,
+    timestamp: new Date(activity.timestamp),
+    description: activity.description,
+    type: activity.type === 'mention_reply' ? 'reply' : 
+          activity.type === 'auto_post' ? 'tweet' : 
+          activity.type === 'timeline_read' ? 'other' : 'tweet',
+  })) || [
     {
       id: 1,
       content: "Posted a trending cryptocurrency analysis",
@@ -191,6 +281,62 @@ const AIAutonomous = () => {
           learningProgress={learningProgress}
           latestLog={latestLog}
         />
+
+        {/* Autonomous Control Panel */}
+        <div className="cyber-card rounded-lg p-6 border border-neonGreen/30 bg-cyberDark/50 backdrop-blur-lg">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-future text-neonGreen">Autonomous Control</h3>
+            <div className={`px-3 py-1 rounded-full text-xs font-mono ${
+              autonomousStatus?.isRunning 
+                ? 'bg-neonGreen/20 text-neonGreen border border-neonGreen/40' 
+                : 'bg-red-500/20 text-red-400 border border-red-500/40'
+            }`}>
+              {autonomousStatus?.isRunning ? 'ACTIVE' : 'INACTIVE'}
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-techWhite/60">Replies this hour:</span>
+                <span className="text-neonGreen ml-2 font-mono">
+                  {autonomousStatus?.replyCount || 0}/{autonomousStatus?.maxRepliesPerHour || 10}
+                </span>
+              </div>
+              <div>
+                <span className="text-techWhite/60">Check interval:</span>
+                <span className="text-cyberBlue ml-2 font-mono">{autonomousConfig.checkIntervalMinutes}m</span>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <CyberButton
+                onClick={handleAutonomousToggle}
+                disabled={startAutonomousMutation.isPending || stopAutonomousMutation.isPending}
+                className={autonomousStatus?.isRunning ? 'bg-red-500/20 border-red-500/40 text-red-400' : ''}
+                iconLeft={autonomousStatus?.isRunning ? 
+                  <i className="fas fa-stop"></i> : 
+                  <i className="fas fa-play"></i>
+                }
+              >
+                {autonomousStatus?.isRunning ? 'STOP' : 'START'} AUTONOMOUS
+              </CyberButton>
+              
+              <CyberButton
+                variant="outline"
+                onClick={() => {
+                  toast({
+                    title: "Configuration",
+                    description: "Autonomous configuration panel coming soon",
+                  });
+                }}
+                iconLeft={<i className="fas fa-cog"></i>}
+              >
+                CONFIGURE
+              </CyberButton>
+            </div>
+          </div>
+        </div>
 
         {/* Performance Metrics */}
         <div className="cyber-card rounded-lg p-5 lg:col-span-2 relative overflow-hidden">

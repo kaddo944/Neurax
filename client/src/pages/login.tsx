@@ -1,343 +1,201 @@
-import React, { useState, useEffect } from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useLocation } from "wouter";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { CyberButton } from "@/components/ui/cyber-button";
-import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
-import { Twitter } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
-const loginSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-const registerSchema = loginSchema.extend({
-  email: z.string().email("Invalid email address"),
-  confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-});
-
-const Login = () => {
-  const { login, register, isLoggingIn, isRegistering, user, loginWithTwitter } = useAuth();
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const { toast } = useToast();
+export default function Login() {
   const [, setLocation] = useLocation();
-  const [isTwitterLoading, setIsTwitterLoading] = useState(false);
+  const { toast } = useToast();
+  const { user, login, register, loginWithTwitter, isLoginLoading, isRegisterLoading } = useAuth();
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    username: ''
+  });
 
-  // Redirect to dashboard if already logged in
+  // Redirect authenticated users
   useEffect(() => {
     if (user) {
-      console.log("User already logged in, redirecting to dashboard");
-      setLocation("/dashboard");
+      setLocation('/dashboard');
     }
   }, [user, setLocation]);
 
-  // Login form
-  const loginForm = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      username: "",
-      password: "",
-    },
-  });
-
-  // Register form
-  const registerForm = useForm<z.infer<typeof registerSchema>>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      username: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
-  });
-
-  const onLoginSubmit = (values: z.infer<typeof loginSchema>) => {
-    login(values);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
   };
 
-  const onRegisterSubmit = (values: z.infer<typeof registerSchema>) => {
-    const { confirmPassword, ...registerData } = values;
-    register(registerData);
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      if (mode === 'register') {
+        await register({
+          email: formData.email,
+          password: formData.password,
+          username: formData.username || formData.email.split('@')[0]
+        });
+
+        toast({
+          title: 'Registrazione completata',
+          description: 'Account creato con successo!',
+        });
+        
+        // Redirect to dashboard after successful registration
+        setLocation('/dashboard');
+      } else {
+        await login({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        toast({
+          title: 'Login effettuato',
+          description: 'Benvenuto!',
+        });
+        
+        // Redirect to dashboard after successful login
+        setLocation('/dashboard');
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Errore',
+        description: error.message || 'Si è verificato un errore',
+        variant: 'destructive',
+      });
+    }
   };
-  
+
   const handleTwitterLogin = async () => {
-    setIsTwitterLoading(true);
     try {
       await loginWithTwitter();
-    } catch (error) {
-      console.error("Twitter login error:", error);
+    } catch (error: any) {
+      console.error('Twitter login error:', error);
       toast({
-        title: "Twitter Login Failed",
-        description: "Could not connect to Twitter. Please try again.",
-        variant: "destructive",
+        title: 'Errore',
+        description: error.message || 'Errore durante il login con Twitter',
+        variant: 'destructive',
       });
-    } finally {
-      setIsTwitterLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4">
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-10 bg-repeat">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1IiBoZWlnaHQ9IjUiPgo8cmVjdCB3aWR0aD0iNSIgaGVpZ2h0PSI1IiBmaWxsPSIjMDAwIj48L3JlY3Q+CjxwYXRoIGQ9Ik0wIDVMNSAwWk02IDRMNCA2Wk0tMSAxTDEgLTFaIiBzdHJva2U9IiMzOUZGMTQiIHN0cm9rZS13aWR0aD0iMSI+PC9wYXRoPgo8L3N2Zz4=')] opacity-30"></div>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyberDark via-gray-900 to-black p-4">
 
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="font-future text-4xl font-bold text-neonGreen mb-2">
-            <span data-text="NeuraX" className="glitch-text">NeuraX</span>
-          </h1>
-          <p className="text-matrixGreen text-lg">AI Social Media Manager</p>
-        </div>
 
-        <Card className="cyber-card backdrop-blur-sm border-neonGreen/20 shadow-lg shadow-neonGreen/10">
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="font-future text-xl text-neonGreen">
-                {mode === "login" ? "Authentication" : "Create Account"}
-              </h2>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setMode("login")}
-                  className={`px-3 py-1 text-xs rounded ${
-                    mode === "login"
-                      ? "bg-neonGreen/20 text-neonGreen border border-neonGreen/40"
-                      : "text-matrixGreen hover:text-neonGreen"
-                  }`}
-                >
-                  Login
-                </button>
-                <button
-                  onClick={() => setMode("register")}
-                  className={`px-3 py-1 text-xs rounded ${
-                    mode === "register"
-                      ? "bg-neonGreen/20 text-neonGreen border border-neonGreen/40"
-                      : "text-matrixGreen hover:text-neonGreen"
-                  }`}
-                >
-                  Register
-                </button>
-              </div>
+      <Card className="w-full max-w-md bg-cyberDark/90 backdrop-blur-lg border-neonGreen/30 shadow-glow-lg relative z-10">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 w-16 h-16 bg-gradient-to-r from-neonGreen to-cyberBlue rounded-full flex items-center justify-center">
+            <i className="fas fa-robot text-2xl text-cyberDark"></i>
+          </div>
+          <CardTitle className="text-2xl font-future text-neonGreen">
+            NeuraX
+          </CardTitle>
+          <CardDescription className="text-techWhite/70">
+            {mode === 'login' ? 'Accedi al tuo account' : 'Crea un nuovo account'}
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {/* Twitter Login Button */}
+          <Button
+            onClick={handleTwitterLogin}
+            disabled={isLoginLoading || isRegisterLoading}
+            className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 shadow-glow-sm"
+          >
+            <i className="fab fa-twitter mr-2"></i>
+            {(isLoginLoading || isRegisterLoading) ? 'Connessione...' : 'Continua con Twitter'}
+          </Button>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-neonGreen/30" />
             </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-cyberDark px-2 text-techWhite/50">oppure</span>
+            </div>
+          </div>
 
-            {mode === "login" ? (
+          {/* Email/Password Form */}
+          <form onSubmit={handleEmailAuth} className="space-y-4">
+            {mode === 'register' && (
               <div>
-                <Form {...loginForm}>
-                  <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
-                    <FormField
-                      control={loginForm.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-matrixGreen">Username</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
-                              placeholder="Enter your username"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={loginForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-matrixGreen">Password</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="password"
-                              className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
-                              placeholder="Enter your password"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <CyberButton
-                      type="submit"
-                      className="w-full mt-2"
-                      disabled={isLoggingIn}
-                      iconLeft={<i className="fas fa-shield-alt"></i>}
-                    >
-                      {isLoggingIn ? "AUTHENTICATING..." : "ACCESS SYSTEM"}
-                    </CyberButton>
-                  </form>
-                </Form>
-
-                <div className="my-4">
-                  <div className="relative flex items-center py-2">
-                    <div className="flex-grow border-t border-neonGreen/20"></div>
-                    <span className="flex-shrink mx-3 text-xs text-matrixGreen">OR</span>
-                    <div className="flex-grow border-t border-neonGreen/20"></div>
-                  </div>
-                  
-                  <CyberButton
-                    type="button"
-                    variant="secondary"
-                    className="w-full"
-                    onClick={handleTwitterLogin}
-                    disabled={isTwitterLoading}
-                    iconLeft={<Twitter className="h-4 w-4 text-cyberBlue" />}
-                  >
-                    {isTwitterLoading ? "CONNECTING..." : "LOGIN WITH TWITTER"}
-                  </CyberButton>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <Form {...registerForm}>
-                  <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
-                    <FormField
-                      control={registerForm.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-matrixGreen">Username</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
-                              placeholder="Choose a username"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={registerForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-matrixGreen">Email</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="email"
-                              className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
-                              placeholder="Enter your email"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={registerForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-matrixGreen">Password</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="password"
-                              className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
-                              placeholder="Create a password"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={registerForm.control}
-                      name="confirmPassword"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-matrixGreen">Confirm Password</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="password"
-                              className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
-                              placeholder="Confirm your password"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <CyberButton
-                      type="submit"
-                      className="w-full mt-2"
-                      disabled={isRegistering}
-                      iconLeft={<i className="fas fa-user-plus"></i>}
-                    >
-                      {isRegistering ? "CREATING ACCOUNT..." : "CREATE NEURAL LINK"}
-                    </CyberButton>
-                  </form>
-                </Form>
-                
-                <div className="my-4">
-                  <div className="relative flex items-center py-2">
-                    <div className="flex-grow border-t border-neonGreen/20"></div>
-                    <span className="flex-shrink mx-3 text-xs text-matrixGreen">OR</span>
-                    <div className="flex-grow border-t border-neonGreen/20"></div>
-                  </div>
-                  
-                  <CyberButton
-                    type="button"
-                    variant="secondary"
-                    className="w-full"
-                    onClick={handleTwitterLogin}
-                    disabled={isTwitterLoading}
-                    iconLeft={<Twitter className="h-4 w-4 text-cyberBlue" />}
-                  >
-                    {isTwitterLoading ? "CONNECTING..." : "REGISTER WITH TWITTER"}
-                  </CyberButton>
-                </div>
+                <label className="block text-sm font-medium text-techWhite mb-2">
+                  Username
+                </label>
+                <Input
+                  name="username"
+                  type="text"
+                  placeholder="Il tuo username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  className="!bg-gray-900 !border-green-500/30 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500/20"
+                  required={mode === 'register'}
+                />
               </div>
             )}
 
-            <div className="mt-6 text-center text-xs text-techWhite/60">
-              <p>By accessing NeuraX, you agree to</p>
-              <p>our Terms of Service and Privacy Policy</p>
-              <div className="flex justify-center gap-2 mt-4">
-                <span>
-                  <i className="fas fa-lock text-neonGreen mr-1"></i> Encrypted
-                </span>
-                <span>
-                  <i className="fas fa-shield-alt text-cyberBlue mr-1"></i> Secured
-                </span>
-                <span>
-                  <i className="fas fa-robot text-electricPurple mr-1"></i> AI-Powered
-                </span>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-techWhite mb-2">
+                Email
+              </label>
+              <Input
+                name="email"
+                type="email"
+                placeholder="La tua email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className="!bg-gray-900 !border-green-500/30 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500/20"
+                required
+              />
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+            <div>
+              <label className="block text-sm font-medium text-techWhite mb-2">
+                Password
+              </label>
+              <Input
+                name="password"
+                type="password"
+                placeholder="La tua password"
+                value={formData.password}
+                onChange={handleInputChange}
+                className="!bg-gray-900 !border-green-500/30 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500/20"
+                required
+                minLength={6}
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={mode === 'login' ? isLoginLoading : isRegisterLoading}
+              className="w-full bg-gradient-to-r from-neonGreen to-cyberBlue hover:from-neonGreen/80 hover:to-cyberBlue/80 text-cyberDark font-semibold shadow-glow-sm"
+            >
+              {(mode === 'login' ? isLoginLoading : isRegisterLoading) ? 'Caricamento...' : (mode === 'login' ? 'Accedi' : 'Registrati')}
+            </Button>
+          </form>
+
+          {/* Toggle Mode */}
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+              className="text-sm text-neonGreen hover:text-neonGreen/80 transition-colors"
+            >
+              {mode === 'login' 
+                ? 'Non hai un account? Registrati' 
+                : 'Hai già un account? Accedi'
+              }
+            </button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
-};
-
-export default Login;
+}
